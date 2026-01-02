@@ -55,6 +55,9 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
+      # Prometheus retention (passed to prometheus via run-all.sh in container)
+      - PROMETHEUS_RETENTION_TIME=90d
+      - PROMETHEUS_RETENTION_SIZE=5GB
     env_file:
       - .env
     healthcheck:

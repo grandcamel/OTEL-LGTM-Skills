@@ -3,6 +3,20 @@ auth_enabled: false
 server:
   http_listen_port: 3100
 
+# Retention configuration - extend data lifespan
+limits_config:
+  retention_period: 90d              # Keep logs for 90 days
+  max_query_lookback: 90d            # Allow queries up to 90 days back
+  ingestion_rate_mb: 10              # 10MB/s ingestion limit
+  ingestion_burst_size_mb: 20        # 20MB burst
+
+compactor:
+  working_directory: /data/loki/compactor
+  compaction_interval: 1h            # Compact every hour
+  retention_enabled: true            # Enable retention enforcement
+  retention_delete_delay: 2h         # Delay before deleting old data
+  retention_delete_worker_count: 50  # Parallel deletion workers
+
 common:
   instance_addr: 127.0.0.1
   path_prefix: /data/loki

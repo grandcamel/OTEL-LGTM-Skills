@@ -38,6 +38,15 @@ storage:
       path: /data/tempo/wal
     local:
       path: /data/tempo/blocks
+    block_retention: 2160h           # Keep trace blocks for 90 days (90*24h)
+
+# Compactor settings for trace block management
+compactor:
+  compaction:
+    block_retention: 2160h           # 90 days retention
+  ring:
+    kvstore:
+      store: inmemory
 
 metrics_generator:
   processor:

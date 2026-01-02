@@ -21,3 +21,10 @@ ingester:
 
 pyroscopedb:
   data_path: "/data/pyroscope"
+  # Retention - keep profiling data for 90 days
+  retention_period: 2160h
+
+# Compactor for cleanup
+compactor:
+  compaction_interval: 1h
+  blocks_retention_period: 2160h     # 90 days
