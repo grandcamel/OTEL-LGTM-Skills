@@ -1,0 +1,123 @@
+services:
+  lgtm:
+    image: grafana/otel-lgtm
+    environment:
+      ENABLE_LOGS_OTELCOL: true
+      ENABLE_LOGS_PYROSCOPE: true
+    networks:
+      - otel-net
+    ports:
+      - "3000:3000"
+      - "4040:4040"
+      - "4317:4317"
+      - "4318:4318"
+      - "9090:9090"
+
+  generate-traffic:
+    build:
+      dockerfile: generate-traffic.Dockerfile
+    networks:
+      - otel-net
+    depends_on:
+      - java
+      - python
+      - dotnet
+      - go
+      - nodejs
+
+  otel-ebpf-profiler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["-collection-agent", "lgtm:4317", "-no-kernel-version-check", "-disable-tls"]
+    hostname: ebpf-profiler
+    privileged: true
+    pid: "host"
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /proc:/proc
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+  # instrumented applications - sorted alphabetically by language
+
+  dotnet:
+    build:
+      context: ../dotnet
+      dockerfile: ../dotnet/Dockerfile
+    environment:
+      OTEL_SERVICE_NAME: "rolldice"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4317
+    ports:
+      - "8083:8083"
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+  go:
+    build:
+      context: ../go
+      dockerfile: ../go/Dockerfile
+    environment:
+      OTEL_SERVICE_NAME: "rolldice"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_METRIC_EXPORT_INTERVAL: "5000" # so we don't have to wait 60s for metrics
+    ports:
+      - "8081:8081"
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+  java:
+    build:
+      context: ../java
+      dockerfile: ../java/Dockerfile
+    environment:
+      OTEL_SERVICE_NAME: "rolldice"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      GRAFANA_ROLL_WAIT: "2000" # 2 seconds
+    ports:
+      - "8080:8080"
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+  nodejs:
+    build:
+      context: ../nodejs
+      dockerfile: ../nodejs/Dockerfile
+    environment:
+      OTEL_SERVICE_NAME: "rolldice"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_METRIC_EXPORT_INTERVAL: "5000" # so we don't have to wait 60s for metrics
+    ports:
+      - "8084:8084"
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+  python:
+    build:
+      context: ../python
+      dockerfile: ../python/Dockerfile
+    environment:
+      OTEL_SERVICE_NAME: "rolldice"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4317
+      OTEL_METRIC_EXPORT_INTERVAL: "5000" # so we don't have to wait 60s for metrics
+    ports:
+      - "8082:8082"
+    networks:
+      - otel-net
+    depends_on:
+      - lgtm
+
+networks:
+  otel-net:
+    driver: bridge
