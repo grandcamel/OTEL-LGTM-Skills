@@ -1,0 +1,194 @@
+# Prometheus Recording Rules for Routing Test Observability
+#
+# Phase 1 Tasks:
+# - P1-19: Create recording rule for test pass rate over 7d
+# - P1-20: Create "Flaky Tests" query rule
+#
+# Installation:
+# Add this file to your Prometheus configuration:
+#   rule_files:
+#     - /path/to/prometheus-rules.yaml
+#
+# Then reload Prometheus:
+#   curl -X POST http://localhost:9090/-/reload
+
+groups:
+  - name: routing_test_rules
+    interval: 1m
+    rules:
+      # P1-19: Test pass rate over 7 days per individual test
+      # This enables flaky test detection by tracking historical pass rate
+      - record: routing_test:pass_rate_7d
+        expr: |
+          (
+            sum by (span_name) (
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                status_code="STATUS_CODE_OK",
+                span_name=~"routing_test_TC.*"
+              }[7d])
+            )
+          ) / (
+            sum by (span_name) (
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                span_name=~"routing_test_TC.*"
+              }[7d])
+            )
+          )
+        labels:
+          aggregation: "7d"
+          metric_type: "pass_rate"
+
+      # P1-19: Test pass rate over 24 hours
+      - record: routing_test:pass_rate_24h
+        expr: |
+          (
+            sum by (span_name) (
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                status_code="STATUS_CODE_OK",
+                span_name=~"routing_test_TC.*"
+              }[24h])
+            )
+          ) / (
+            sum by (span_name) (
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                span_name=~"routing_test_TC.*"
+              }[24h])
+            )
+          )
+        labels:
+          aggregation: "24h"
+          metric_type: "pass_rate"
+
+      # P1-20: Flaky tests detection (30-70% pass rate over 7 days)
+      # Tests in this range are considered unstable/flaky
+      - record: routing_test:flaky_tests
+        expr: |
+          routing_test:pass_rate_7d > 0.3
+          and
+          routing_test:pass_rate_7d < 0.7
+        labels:
+          status: "flaky"
+          threshold_low: "30%"
+          threshold_high: "70%"
+
+      # Consistently failing tests (< 30% pass rate)
+      - record: routing_test:failing_tests
+        expr: |
+          routing_test:pass_rate_7d > 0
+          and
+          routing_test:pass_rate_7d <= 0.3
+        labels:
+          status: "failing"
+          threshold: "30%"
+
+      # Test execution count over 7 days
+      - record: routing_test:execution_count_7d
+        expr: |
+          sum by (span_name) (
+            increase(traces_spanmetrics_calls_total{
+              service="jira-assistant-routing-tests",
+              span_name=~"routing_test_TC.*"
+            }[7d])
+          )
+        labels:
+          aggregation: "7d"
+          metric_type: "execution_count"
+
+      # Average test duration over 24 hours
+      - record: routing_test:avg_duration_24h
+        expr: |
+          (
+            sum by (span_name) (
+              increase(traces_spanmetrics_latency_sum{
+                service="jira-assistant-routing-tests",
+                span_name=~"routing_test_TC.*"
+              }[24h])
+            )
+          ) / (
+            sum by (span_name) (
+              increase(traces_spanmetrics_latency_count{
+                service="jira-assistant-routing-tests",
+                span_name=~"routing_test_TC.*"
+              }[24h])
+            )
+          )
+        labels:
+          aggregation: "24h"
+          metric_type: "avg_duration"
+
+      # Overall routing accuracy over 1 hour (for alerting)
+      - record: routing_test:accuracy_1h
+        expr: |
+          (
+            sum(
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                status_code="STATUS_CODE_OK",
+                span_name=~"routing_test_TC.*"
+              }[1h])
+            )
+          ) / (
+            sum(
+              increase(traces_spanmetrics_calls_total{
+                service="jira-assistant-routing-tests",
+                span_name=~"routing_test_TC.*"
+              }[1h])
+            )
+          ) * 100
+        labels:
+          metric_type: "accuracy_percent"
+
+      # API retry rate over 5 minutes (for SRE alerting)
+      - record: routing_test:retry_rate_5m
+        expr: |
+          sum(rate(routing_test_retries_total[5m]))
+        labels:
+          metric_type: "retry_rate"
+
+      # Cost per test over 24 hours
+      - record: routing_test:cost_per_test_24h
+        expr: |
+          (
+            sum(increase(routing_test_cost_usd_sum[24h]))
+          ) / (
+            sum(increase(traces_spanmetrics_calls_total{
+              service="jira-assistant-routing-tests",
+              span_name=~"routing_test_TC.*"
+            }[24h]))
+          )
+        labels:
+          metric_type: "cost_per_test"
+
+  # Alerting rules (optional - uncomment to enable)
+  # - name: routing_test_alerts
+  #   rules:
+  #     - alert: RoutingAccuracyBelowSLO
+  #       expr: routing_test:accuracy_1h < 85
+  #       for: 10m
+  #       labels:
+  #         severity: warning
+  #       annotations:
+  #         summary: "Routing accuracy below 85% SLO"
+  #         description: "Routing accuracy is {{ $value | printf \"%.1f\" }}% (SLO: 85%)"
+  #
+  #     - alert: HighAPIRetryRate
+  #       expr: routing_test:retry_rate_5m > 0.1
+  #       for: 5m
+  #       labels:
+  #         severity: warning
+  #       annotations:
+  #         summary: "High API retry rate detected"
+  #         description: "API retry rate is {{ $value | printf \"%.2f\" }}/sec"
+  #
+  #     - alert: FlakyTestsDetected
+  #       expr: count(routing_test:flaky_tests) > 3
+  #       for: 1h
+  #       labels:
+  #         severity: info
+  #       annotations:
+  #         summary: "Multiple flaky tests detected"
+  #         description: "{{ $value }} tests have 30-70% pass rate over 7 days"

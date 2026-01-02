@@ -1,0 +1,66 @@
+version: "3.8"
+
+# Docker Compose for LGTM stack with mounted configs for easy iteration
+# Usage:
+#   docker-compose up -d          # Start in background
+#   docker-compose restart        # Reload configs
+#   docker-compose down           # Stop and remove
+#   docker-compose logs -f        # Follow logs
+
+services:
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: lgtm
+    ports:
+      - "3000:3000"   # Grafana
+      - "3100:3100"   # Loki
+      - "3200:3200"   # Tempo
+      - "4040:4040"   # Pyroscope
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "9090:9090"   # Prometheus
+    volumes:
+      # Persistent data volumes
+      - ./container/grafana:/data/grafana:rw
+      - ./container/prometheus:/data/prometheus:rw
+      - ./container/loki:/data/loki:rw
+      - ./container/tempo:/data/tempo:rw
+      - ./container/pyroscope:/data/pyroscope:rw
+
+      # Config file mounts - restart container to reload
+      - ./docker/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./docker/prometheus-rules.yaml:/otel-lgtm/prometheus-rules.yaml:ro
+      - ./docker/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
+      - ./docker/loki-config.yaml:/otel-lgtm/loki-config.yaml:ro
+      - ./docker/otelcol-config.yaml:/otel-lgtm/otelcol-config.yaml:ro
+      - ./docker/pyroscope-config.yaml:/otel-lgtm/pyroscope-config.yaml:ro
+
+      # Grafana provisioning
+      - ./docker/grafana-datasources.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/grafana-datasources.yaml:ro
+      - ./docker/grafana-dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/grafana-dashboards.yaml:ro
+
+      # Dashboard JSON files
+      - ./docker/grafana-dashboard-red-metrics-classic.json:/otel-lgtm/grafana-dashboard-red-metrics-classic.json:ro
+      - ./docker/grafana-dashboard-red-metrics-native.json:/otel-lgtm/grafana-dashboard-red-metrics-native.json:ro
+      - ./docker/grafana-dashboard-jvm-metrics.json:/otel-lgtm/grafana-dashboard-jvm-metrics.json:ro
+      - ./docker/grafana-dashboard-routing-ab.json:/otel-lgtm/grafana-dashboard-routing-ab.json:ro
+      - ./docker/grafana-dashboard-routing-qa.json:/otel-lgtm/grafana-dashboard-routing-qa.json:ro
+      - ./docker/grafana-dashboard-routing-sre.json:/otel-lgtm/grafana-dashboard-routing-sre.json:ro
+      - ./docker/grafana-dashboard-routing-executive.json:/otel-lgtm/grafana-dashboard-routing-executive.json:ro
+
+      # Custom dashboards directory (optional - for user dashboards)
+      - ./dashboards:/otel-lgtm/custom-dashboards:ro
+    environment:
+      - GF_PATHS_DATA=/data/grafana
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13133/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
