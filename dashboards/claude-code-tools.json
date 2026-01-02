@@ -1,0 +1,275 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "claude-code-tools",
+    "title": "Claude Code - Tool Usage",
+    "tags": ["claude-code", "tools"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Tool Executions",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "count_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} [$__range])",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [{ "color": "blue", "value": null }]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Success Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "count_over_time({service_name=\"claude-code\", event_name=\"tool_result\", success=\"true\"} [$__range]) / count_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} [$__range]) * 100",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "green", "value": 95 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Avg Duration",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "avg_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} | json | unwrap duration_ms [$__range])",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 5000 },
+                { "color": "red", "value": 30000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Failed Tools",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "count_over_time({service_name=\"claude-code\", event_name=\"tool_result\", success=\"false\"} [$__range])",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Tool Usage by Type",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 4 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum by(tool_name) (count_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} [$__range]))",
+          "legendFormat": "{{tool_name}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+          "pieType": "pie",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Tool Decisions",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 4 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum by(decision) (count_over_time({service_name=\"claude-code\", event_name=\"tool_decision\"} [$__range]))",
+          "legendFormat": "{{decision}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+          "pieType": "donut",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "accept" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+            { "matcher": { "id": "byName", "options": "reject" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "title": "Decision Source",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 4 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum by(source) (count_over_time({service_name=\"claude-code\", event_name=\"tool_decision\"} [$__range]))",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+          "pieType": "donut",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Tool Executions Over Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum by(tool_name) (count_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} [1m]))",
+          "legendFormat": "{{tool_name}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80,
+              "stacking": { "mode": "normal" }
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Tool Duration by Type",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "avg by(tool_name) (avg_over_time({service_name=\"claude-code\", event_name=\"tool_result\"} | json | unwrap duration_ms [5m]))",
+          "legendFormat": "{{tool_name}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "drawStyle": "line", "fillOpacity": 20 }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Failed Tool Executions",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "{service_name=\"claude-code\", event_name=\"tool_result\", success=\"false\"} | json",
+          "refId": "A"
+        }],
+        "transformations": [
+          {
+            "id": "extractFields",
+            "options": { "source": "labels" }
+          },
+          {
+            "id": "organize",
+            "options": {
+              "includeByName": {
+                "Time": true,
+                "tool_name": true,
+                "error": true,
+                "duration_ms": true,
+                "session_id": true
+              }
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "displayName": "Time", "desc": true }]
+        },
+        "fieldConfig": {
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "duration_ms" }, "properties": [{ "id": "unit", "value": "ms" }] }
+          ]
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

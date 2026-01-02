@@ -1,0 +1,264 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "claude-code-api",
+    "title": "Claude Code - API Performance",
+    "tags": ["claude-code", "api", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Avg Latency",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "avg_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap duration_ms [$__range])",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 10000 },
+                { "color": "red", "value": 30000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap cache_read_tokens [$__range])) / (sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap cache_read_tokens [$__range])) + sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap input_tokens [$__range])) + sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap cache_creation_tokens [$__range]))) * 100",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 50 },
+                { "color": "green", "value": 80 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "API Errors",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "count_over_time({service_name=\"claude-code\", event_name=\"api_error\"} [$__range])",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "noValue": "0",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Tokens/Second",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap output_tokens [$__range])) / sum(sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap duration_ms [$__range])) * 1000",
+          "refId": "A"
+        }],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "yellow", "value": null },
+                { "color": "green", "value": 50 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Latency by Model",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "avg by(model) (avg_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap duration_ms [5m]))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "drawStyle": "line", "fillOpacity": 20, "pointSize": 5 }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Requests by Model",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "sum by(model) (count_over_time({service_name=\"claude-code\", event_name=\"api_request\"} [1m]))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80,
+              "stacking": { "mode": "normal" }
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Latency Distribution",
+        "type": "histogram",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "{service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap duration_ms",
+          "refId": "A"
+        }],
+        "options": {
+          "bucketSize": 1000,
+          "legend": { "displayMode": "list", "placement": "bottom" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 80 }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Output Tokens Distribution",
+        "type": "histogram",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [{
+          "expr": "{service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap output_tokens",
+          "refId": "A"
+        }],
+        "options": {
+          "bucketSize": 100,
+          "legend": { "displayMode": "list", "placement": "bottom" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 80 }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Cache Tokens Over Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "targets": [
+          {
+            "expr": "sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap cache_read_tokens [1m])",
+            "legendFormat": "Cache Read",
+            "refId": "A"
+          },
+          {
+            "expr": "sum_over_time({service_name=\"claude-code\", event_name=\"api_request\"} | json | unwrap cache_creation_tokens [1m])",
+            "legendFormat": "Cache Creation",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 30,
+              "stacking": { "mode": "none" }
+            }
+          },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Cache Read" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+            { "matcher": { "id": "byName", "options": "Cache Creation" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
+          ]
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}
