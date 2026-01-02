@@ -12,3 +12,4 @@ grafana-opentelemetry*.jar
 build/
 
 container/
+backups/
